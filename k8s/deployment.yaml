@@ -4,30 +4,67 @@
 # data PVC. Single-writer sqlite ⇒ replicas: 1 + strategy: Recreate.
 #
 # CRON_MIN runs the feed refresher inside the container on a cron schedule;
-# `*/20` = every 20 minutes (lightweight; tune via configmap later if needed).
+# `*/20` = every 20 minutes.
+#
+# The initContainer clones the xExtension-Readable extension into the shared
+# extensions PVC on every pod start (pinned to a specific commit so upstream
+# changes don't surprise us). FreshRSS auto-discovers extensions in
+# /var/www/FreshRSS/extensions/<dir>; the user enables "Readable" in the
+# FreshRSS UI once after install. The extension talks to the Mercury service
+# (see mercury.yaml) at http://mercury:3000.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: freshrss
   namespace: kb-freshrss
   labels:
-    app: freshrss
+    component: freshrss
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: freshrss
+      component: freshrss
   template:
     metadata:
       labels:
-        app: freshrss
+        component: freshrss
     spec:
       securityContext:
         # FreshRSS image runs Apache as www-data inside the container; ensure
         # the mounted PVCs are writable by it.
         fsGroup: 33
+      initContainers:
+        # Install / refresh the xExtension-Readable extension into the
+        # extensions PVC. Pinned to a known-good commit; bump deliberately.
+        - name: install-readable-extension
+          image: alpine/git:v2.49.0
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              REPO=https://github.com/printfuck/xExtension-Readable.git
+              REF=54751dbd95d12d677c8d9db69c478fea0334b267
+              DIR=/extensions/xExtension-Readable
+              if [ -d "$DIR/.git" ]; then
+                echo "[ext-install] refreshing existing clone in $DIR"
+                git -C "$DIR" fetch --depth 1 origin "$REF"
+                git -C "$DIR" checkout -f "$REF"
+              else
+                echo "[ext-install] cloning $REPO @ $REF -> $DIR"
+                rm -rf "$DIR"
+                git clone "$REPO" "$DIR"
+                git -C "$DIR" checkout -f "$REF"
+              fi
+              # FreshRSS Apache runs as uid/gid 33 (www-data); keep that.
+              chown -R 33:33 "$DIR"
+              echo "[ext-install] installed files:"
+              ls -la "$DIR"
+          volumeMounts:
+            - name: extensions
+              mountPath: /extensions
       containers:
         - name: freshrss
           image: freshrss/freshrss:1.27.0

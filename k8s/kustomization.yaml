@@ -6,9 +6,14 @@ resources:
   - pvc.yaml
   - deployment.yaml
   - service.yaml
+  - mercury.yaml
   - ingress-lan.yaml
   - ingress-lab.yaml
 labels:
+  # The shared `app` label tags every resource for selection but is NOT
+  # included in selectors — different deployments (freshrss, mercury) carry
+  # their own `component` label, and Services match on `component`. Adding
+  # `app` to selectors would conflate the two.
   - pairs:
       app: kb-freshrss
-    includeSelectors: true
+    includeSelectors: false
