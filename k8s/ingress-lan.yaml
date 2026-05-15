@@ -1,0 +1,24 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: freshrss-lan
+  namespace: kb-freshrss
+  annotations:
+    # k8s_gateway also reads spec.rules[].host. Annotation kept as an explicit
+    # hint for tooling that doesn't parse .spec.rules.
+    coredns.io/hostname: freshrss.k8s.lan
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: freshrss.k8s.lan
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: freshrss
+                port:
+                  number: 80

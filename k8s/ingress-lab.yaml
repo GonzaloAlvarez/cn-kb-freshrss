@@ -1,0 +1,23 @@
+---
+# TLS terminates at the VPS Traefik; cluster ingress sees plaintext from the
+# k8s-router subnet route advertised over tailnet (10.0.0.192/27).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: freshrss-lab
+  namespace: kb-freshrss
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: freshrss.lab.gn.al
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: freshrss
+                port:
+                  number: 80

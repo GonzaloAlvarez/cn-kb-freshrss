@@ -1,0 +1,28 @@
+---
+# FreshRSS application data: sqlite DB, feed cache, user state.
+# Resize later by editing storage and `kubectl apply` — Longhorn supports online expansion.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: freshrss-data
+  namespace: kb-freshrss
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+---
+# FreshRSS extensions (filters, themes, plugins). Smaller — separate PVC keeps
+# user-installed extensions decoupled from feed data.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: freshrss-extensions
+  namespace: kb-freshrss
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 1Gi

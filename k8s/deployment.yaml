@@ -1,0 +1,74 @@
+---
+# freshrss/freshrss — official multi-arch image (incl. arm64 for the rpid Pis).
+# SQLite backend by default; first-boot install via the web UI persists in the
+# data PVC. Single-writer sqlite ⇒ replicas: 1 + strategy: Recreate.
+#
+# CRON_MIN runs the feed refresher inside the container on a cron schedule;
+# `*/20` = every 20 minutes (lightweight; tune via configmap later if needed).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: freshrss
+  namespace: kb-freshrss
+  labels:
+    app: freshrss
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: freshrss
+  template:
+    metadata:
+      labels:
+        app: freshrss
+    spec:
+      securityContext:
+        # FreshRSS image runs Apache as www-data inside the container; ensure
+        # the mounted PVCs are writable by it.
+        fsGroup: 33
+      containers:
+        - name: freshrss
+          image: freshrss/freshrss:1.27.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TZ
+              value: America/New_York
+            - name: CRON_MIN
+              value: "*/20"
+          ports:
+            - name: http
+              containerPort: 80
+          volumeMounts:
+            - name: data
+              mountPath: /var/www/FreshRSS/data
+            - name: extensions
+              mountPath: /var/www/FreshRSS/extensions
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /i/
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /i/
+              port: 80
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: freshrss-data
+        - name: extensions
+          persistentVolumeClaim:
+            claimName: freshrss-extensions
