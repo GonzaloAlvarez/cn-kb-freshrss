@@ -45,6 +45,13 @@ spec:
             - -c
             - |
               set -e
+              # We run as root but chown the clone to 33:33 (www-data) below
+              # so FreshRSS's Apache can read it. On the next pod start,
+              # git refuses to touch a repo whose .git is owned by a UID
+              # different from the caller (CVE-2022-24765 mitigation in
+              # git ≥ 2.35.2) → "fatal: detected dubious ownership". Mark
+              # any path under /extensions as safe before doing anything.
+              git config --global --add safe.directory '*'
               REPO=https://github.com/printfuck/xExtension-Readable.git
               REF=54751dbd95d12d677c8d9db69c478fea0334b267
               DIR=/extensions/xExtension-Readable
